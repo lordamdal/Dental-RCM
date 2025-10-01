@@ -1,7 +1,7 @@
 
 import axios from 'axios'
 
-const baseURL = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000'
+const baseURL = (import.meta as any).env.VITE_API_BASE || 'http://34.168.37.99:8000'
 export const api = axios.create({ baseURL })
 
 export async function listCases() {

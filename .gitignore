@@ -1,0 +1,15 @@
+# Python virtual environments
+venv/
+backend/venv/
+
+# Node dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Local environment overrides
+.env*
+
+# macOS metadata
+.DS_Store

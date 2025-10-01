@@ -138,19 +138,41 @@ export default function CaseChatPanel() {
       </div>
 
       <div ref={scroller} className="flex-1 space-y-4 overflow-y-auto px-5 py-6">
-        {list.map(m => {
+        {list.filter(m=>m.role !== 'system').map(m => {
           const isUser = m.role === 'user'
           const isSystem = m.role === 'system'
           return (
             <div key={m.msg_id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] rounded-3xl border px-4 py-3 text-sm leading-relaxed shadow-lg ${isUser ? 'rounded-tr-md border-emerald-400/60 bg-emerald-400/20 text-emerald-50' : isSystem ? 'border-sky-400/40 bg-sky-400/10 text-sky-100' : 'border-white/10 bg-white/10 text-slate-100'}`}>
-                <div className="mb-1 text-[0.65rem] uppercase tracking-widest text-slate-300/70">{m.role}</div>
                 <div className="whitespace-pre-wrap text-sm">{m.content}</div>
                 <div className="mt-2 text-[0.6rem] text-slate-400">{new Date(m.created_at).toLocaleString()}</div>
               </div>
             </div>
           )
         })}
+        {currentStage === 'awaiting_resolution_choice' && (
+          <div className="flex flex-wrap gap-2">
+            {[{n:1,label:'Upload docs'},{n:2,label:'Remove procedure'},{n:3,label:'Submit as-is'},{n:4,label:'Pause case'}].map(opt => (
+              <button
+                key={opt.n}
+                disabled={pending}
+                onClick={async ()=>{
+                  if(!caseId) return; setPending(true);
+                  try{ await sendMessage(caseId, String(opt.n));
+                    const latest = await listMessages(caseId); setMessages(caseId, latest);
+                    await refreshCaseData(caseId);
+                  }catch(err){ console.error('Failed to send quick option', err); alert('Failed to send. Please try again.'); }
+                  finally{ setPending(false); }
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs text-slate-200 transition hover:border-emerald-400/60 hover:text-white disabled:opacity-50"
+              >
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-white/5 text-[0.7rem]">{opt.n}</span>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {list.length === 0 && (
           <div className="flex h-full min-h-[240px] items-center justify-center rounded-3xl border border-dashed border-white/10 bg-white/0 text-sm text-slate-300">
             No messages yet—say hello to kick things off.

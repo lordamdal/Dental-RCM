@@ -1,2 +1,1 @@
 case_id,title,patient_name,payer,status,reimbursement_amount,reimbursement_date,workflow_stage,workflow_status,next_action,risk_level,created_at,updated_at
-case_le26ktkn,Test,,,Awaiting kickoff,,,awaiting_case_start,Let the assistant know when you are ready to start the claim.,Tell the assistant you want to start a new case.,,2025-09-22T17:28:44.392343-07:00,2025-09-22T17:28:44.393439-07:00

@@ -1,16 +1,1 @@
-{
-  "case_le26ktkn": {
-    "stage": "awaiting_case_start",
-    "context": {
-      "title": "Test",
-      "eligibility": null,
-      "issues": {
-        "insufficient_documentation": true,
-        "duplicate": true
-      },
-      "documents": {},
-      "rcm_review": null,
-      "reimbursement": null
-    }
-  }
-}
+{}

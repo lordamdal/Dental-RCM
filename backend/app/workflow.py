@@ -1,5 +1,6 @@
 import csv
 import json
+import logging
 import os
 import re
 from typing import Dict, List, Optional
@@ -30,6 +31,16 @@ CASE_FIELD_ORDER = [
 
 MESSAGE_FIELD_ORDER = ['msg_id', 'case_id', 'role', 'content', 'created_at']
 DOCUMENT_FIELD_ORDER = ['doc_id', 'case_id', 'name', 'type', 'path', 'public_url', 'uploaded_at']
+
+ADA_CODES_FILE = os.path.join(settings.DATA_DIR, 'ada_codes.csv')
+ADA_CODE_PATTERN = re.compile(r'\bD\d{4}\b', re.IGNORECASE)
+
+logger = logging.getLogger(__name__)
+
+_ADA_CODES_CACHE: Dict[str, str] = {}
+_ADA_CODES_MTIME: float | None = None
+
+SOAP_SAMPLE = """VINCENT W. H. WANG DDS INC\n572 E Green St, Ste 205, Pasadena, CA 91101\n\nPatient Name: MCCORMICK, DEBORAH A.\nDOB: 12/18/1951\nGender: Female\nPrimary Payor: Medicare CA - Southern California\nMBI/Primary #: 4VR1M50JQ34\nService Date (DOS): 10/06/2023\nMR/Chart ID / Patient Account #: M98593279\nReferring/Attending Provider: Vincent W. H. Wang, DDS (NPI 1366503385)\n\nSOAP NOTE (Operative Visit)\n\nS - Subjective\n- Chief Complaint: "My jaw hurts and my bite feels off. Hard to chew on the left."\n- HPI: 72-year-old female with chronic jaw pain and malocclusion, progressively worsening over ~12 months. Pain 6/10 with mastication; improved with soft diet and OTC ibuprofen. Intermittent left maxillary sinus pressure. Denies fever, trismus, dysphagia, or recent dental abscess.\n- ROS: Negative for chest pain, dyspnea, bleeding disorders. Positive for intermittent sinus pressure as above; otherwise non-contributory.\n- PMH (training assumption): Hypertension (controlled), hyperlipidemia; no history of bleeding disorder; no bisphosphonate use; no prior head & neck radiation. ASA class II.\n- Meds (training assumption): Lisinopril 10 mg daily; Atorvastatin 20 mg nightly; Vitamin D/calcium; Ibuprofen 200 mg as needed.\n- Allergies: No known drug allergies (NKDA).\n- Social: Non-smoker; occasional wine; lives independently.\n\nO - Objective\n- Vitals (pre-op): BP 128/76 mmHg, HR 74 bpm, Temp 98.1 F, SpO2 98% RA, BMI not assessed.\n- Exam findings:\n  * Maxillary ridge deficiency with tenderness along the right edentulous ridge.\n  * Mandibular alveolar irregularities with two lateral exostoses causing occlusal interference and mucosal irritation.\n  * Left posterior mandible with palpable submucosal foreign material; mucosa intact without purulence.\n  * Occlusion: malocclusion with reduced vertical dimension; no trismus.\n  * Imaging/Studies: Prior panoramic/CBCT consistent with ridge atrophy, mandibular exostoses, and left maxillary sinus changes; no acute osteomyelitis.\n\nAnesthesia & Peri-op Management (training assumption)\n- Technique: Local anesthesia with minimal sedation.\n- Local: 2% lidocaine with 1:100,000 epi (4 cartridges, 7.2 mL) via infiltrations + IAN block; 0.5% bupivacaine with 1:200,000 epi (1 cartridge, 1.8 mL) for post-op analgesia.\n- Sedation: Oral triazolam 0.25 mg pre-procedure + nitrous oxide 30% titrated; continuous pulse oximetry; BP every 5 minutes; suction/oxygen available; NPO 6 hours confirmed.\n- Antisepsis: 0.12% chlorhexidine rinse pre-op; sterile drape; PPE per protocol.\n\nO - Procedures Performed (CPT with analogous CDT mapping)\n- 21210: Bone graft, maxilla (right ridge) (CDT D7950).\n  * Decortication; placement of allogeneic cortico-cancellous particulate graft (~1.5 cc) with resorbable collagen membrane (15x20 mm). Primary closure with 4-0 chromic.\n- 21209: Chin augmentation with bone graft (CDT D7994; distinct site).\n  * Onlay augmentation using autogenous shavings (bone scraper) blended with allograft; secured to symphysis; layered closure with 4-0 Vicryl.\n- 21026 x2: Excision of mandibular exostoses (CDT D7472).\n  * Removal of two separate bony prominences causing prosthetic/occlusal interference.\n- 10120 x2: Removal of foreign body, subcutaneous/osseous (CDT D7296).\n  * Two retained fragments excised from left posterior mandible via separate incision; copious irrigation.\n- 31020: Surgical sinusotomy, left maxillary (CDT D7953 analog).\n  * Restored ostial patency and sinus floor support to aid graft integration; hemostasis achieved.\n- 40800: Excision of vestibule of mouth (anterior mandible) (CDT D7471).\n  * Limited vestibuloplasty/soft-tissue excision for prosthetic preparation; straightforward closure.\n\nOther Intra-op Details\n- Estimated Blood Loss: ~20 mL.\n- Fluids: PO as tolerated post-op.\n- Specimens: None submitted.\n- Complications: None.\n- Counts: Instruments/gauze/sutures correct at case end.\n\nA - Assessment\n- R68.84: Jaw pain.\n- M26.4: Malocclusion of teeth.\n- Post-op condition stable; pain controlled; no immediate complications.\n\nP - Plan\n- Medications:\n  * Amoxicillin 500 mg PO TID x7 days.\n  * Ibuprofen 600 mg PO every 6 hours as needed (max 2400 mg/day); may alternate with Acetaminophen 500 mg every 6 hours as needed (max 3000 mg/day).\n  * Chlorhexidine 0.12% rinse 15 mL BID for 7-10 days (avoid eating/drinking for 30 minutes after use).\n- Post-op Instructions: Ice 20 minutes on/off first 24 hours; head elevation; soft diet for 48-72 hours; avoid vigorous rinsing or straws for 24 hours; no smoking. For sinusotomy: no nose blowing for 10 days, sneeze with mouth open, use OTC saline spray as needed. Call for fever >101.5 F, uncontrolled pain/bleeding, or expanding swelling. Written instructions provided.\n- Follow-Up: 10-14 days for suture check and healing evaluation; sooner as needed.\n- Return Precautions: As above; 24-hour on-call number provided.\n- Billing/Coding Summary: 21210; 21209; 21026 x2; 10120 x2; 31020; 40800 linked to R68.84, M26.4.\n\nProvider: Vincent W. H. Wang, DDS\nSignature: _________________________\nDate: _________________________"""
 
 STAGE_DEFAULTS = {
     'awaiting_case_start': {
@@ -81,6 +92,11 @@ STAGE_DEFAULTS = {
         'status': 'Ready to submit',
         'workflow_status': 'All documents compiled and ready for payer submission.',
         'next_action': 'Download the final package and submit to the payer.',
+    },
+    'submitted': {
+        'status': 'Submitted',
+        'workflow_status': 'Claim has been submitted to the payer.',
+        'next_action': 'Monitor for payer response and EOB.',
     },
 }
 
@@ -390,6 +406,39 @@ def _simulate_reimbursement_forecast() -> Dict:
     }
 
 
+def _choice_from_text(text: str) -> Optional[str]:
+    """Map user freeform text to a numbered resolution choice.
+    Returns one of: 'upload', 'remove', 'submit_without', 'exit' or None.
+    Accepts: 1/2/3/4, 'option 1', 'one', unicode numerals, etc.
+    """
+    if not text:
+        return None
+    s = text.strip().lower()
+    # quick win: extract leading digit
+    import re
+    m = re.match(r"\s*(?:option\s*)?(\d)[\).\s]*", s)
+    if m:
+        d = m.group(1)
+        if d == '1':
+            return 'upload'
+        if d == '2':
+            return 'remove'
+        if d == '3':
+            return 'submit_without'
+        if d == '4':
+            return 'exit'
+    # spelled numbers / unicode circled
+    if s in {'one', '①', '❶'}:
+        return 'upload'
+    if s in {'two', '②', '❷'}:
+        return 'remove'
+    if s in {'three', '③', '❸'}:
+        return 'submit_without'
+    if s in {'four', '④', '❹'}:
+        return 'exit'
+    return None
+
+
 def _generate_case_file(case_id: str, filename: str, content: str, doc_type: str = 'generated') -> Dict:
     case_dir = os.path.join(settings.DATA_DIR, 'uploads', case_id)
     ensure_dir(case_dir)
@@ -410,12 +459,35 @@ def _generate_case_file(case_id: str, filename: str, content: str, doc_type: str
 
 
 def _generate_pdf(case_id: str, filename: str, text: str) -> Dict:
-    # Minimal PDF writer (not full featured, but viewable)
     case_dir = os.path.join(settings.DATA_DIR, 'uploads', case_id)
     ensure_dir(case_dir)
     path = os.path.join(case_dir, filename)
-    safe_text = text.replace('(', r'\(').replace(')', r'\)')
-    content_stream = f"BT /F1 12 Tf 72 720 Td ({safe_text}) Tj ET"
+
+    lines = text.splitlines()
+    text_commands = ["BT", "/F1 11 Tf", "16 TL", "72 760 Td"]
+    for line in lines:
+        safe = line.replace('\\', r'\\').replace('(', r'\(').replace(')', r'\)')
+        text_commands.append(f"({safe}) Tj")
+        text_commands.append("T*")
+    text_commands.append("ET")
+
+    signature_y = 140
+    signature_commands = [
+        "BT",
+        "/F1 11 Tf",
+        f"72 {signature_y + 40} Td",
+        "(Provider: Vincent W. H. Wang, DDS) Tj",
+        "T*",
+        "(Signature: _________________________) Tj",
+        "T*",
+        "(Date: _________________________) Tj",
+        "ET",
+        f"72 {signature_y} m",
+        "360 {signature_y} l",
+        "S",
+    ]
+
+    content_stream = "\n".join(text_commands + signature_commands)
     pdf = "\n".join([
         '%PDF-1.4',
         '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
@@ -432,10 +504,10 @@ def _generate_pdf(case_id: str, filename: str, text: str) -> Dict:
         '0000000060 00000 n ',
         '0000000118 00000 n ',
         '0000000276 00000 n ',
-        '0000000385 00000 n ',
+        '0000000426 00000 n ',
         'trailer << /Size 6 /Root 1 0 R >>',
         'startxref',
-        '458',
+        '498',
         '%%EOF',
     ])
     with open(path, 'wb') as f:
@@ -453,14 +525,71 @@ def _generate_pdf(case_id: str, filename: str, text: str) -> Dict:
     return rec
 
 
+def _get_ada_codes() -> Dict[str, str]:
+    global _ADA_CODES_CACHE, _ADA_CODES_MTIME
+    try:
+        current_mtime = os.path.getmtime(ADA_CODES_FILE)
+    except FileNotFoundError:
+        if _ADA_CODES_CACHE:
+            logger.warning("ADA codes file missing at %s", ADA_CODES_FILE)
+        _ADA_CODES_CACHE = {}
+        _ADA_CODES_MTIME = None
+        return {}
+
+    if _ADA_CODES_CACHE and _ADA_CODES_MTIME == current_mtime:
+        return _ADA_CODES_CACHE
+
+    codes: Dict[str, str] = {}
+    try:
+        with open(ADA_CODES_FILE, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                code = (row.get('code') or row.get('Code') or '').strip().upper()
+                description = (row.get('description') or row.get('Description') or '').strip()
+                if not code or not description:
+                    continue
+                codes[code] = description
+    except Exception as exc:
+        logger.error("Failed to load ADA codes: %%s", exc)
+        codes = {}
+
+    _ADA_CODES_CACHE = codes
+    _ADA_CODES_MTIME = current_mtime
+    return codes
+
+
+def _ada_code_responses(case_id: str, content: str) -> List[Dict]:
+    codes_lookup = _get_ada_codes()
+    matches = {code.upper() for code in ADA_CODE_PATTERN.findall(content or '')}
+    if not matches:
+        return []
+
+    known = sorted(code for code in matches if code in codes_lookup)
+    unknown = sorted(code for code in matches if code not in codes_lookup)
+    responses: List[Dict] = []
+
+    if known:
+        lines = "\n".join(f"- {code}: {codes_lookup[code]}" for code in known)
+        message = "Here is what I have on the ADA codes you mentioned:\n" + lines
+        responses.append(record_message(case_id, 'assistant', message))
+
+    if unknown:
+        note = "I do not have details on the following codes yet: " + ", ".join(unknown) + ". If you have clinical notes for them, upload those and I can keep the case moving."
+        responses.append(record_message(case_id, 'assistant', note))
+
+    return responses
+
+
 def handle_user_message(case_id: str, content: str) -> List[Dict]:
     state = get_state(case_id)
     stage = state.get('stage', 'awaiting_case_start')
     ctx = state.get('context', {})
     responses: List[Dict] = []
 
+    responses.extend(_ada_code_responses(case_id, content))
+
     if stage == 'awaiting_case_start':
-        if _kw_match(content, 'start', 'new case', 'begin'):
+        if _kw_match(content, 'start', 'new case', 'begin', 'ready', "i'm ready", 'i am ready', 'new patient', 'file a claim', 'medicare', 'help'):
             set_state(case_id, 'awaiting_case_details', ctx)
             apply_stage(case_id, 'awaiting_case_details')
             responses.append(record_message(case_id, 'assistant',
@@ -478,15 +607,16 @@ def handle_user_message(case_id: str, content: str) -> List[Dict]:
             "Once you upload the clinical notes with ADA CDT codes, I'll convert them to CPT and run the reimbursement checks."))
 
     elif stage == 'awaiting_resolution_choice':
-        choice = None
-        if _kw_match(content, 'option 1', 'upload', 'more documentation', 'additional documentation'):
-            choice = 'upload'
-        elif _kw_match(content, 'option 2', 'remove'):
-            choice = 'remove'
-        elif _kw_match(content, 'option 3', 'submit without'):
-            choice = 'submit_without'
-        elif _kw_match(content, 'option 4', 'exit', 'restart', 'later'):
-            choice = 'exit'
+        choice = _choice_from_text(content)
+        if not choice:
+            if _kw_match(content, 'option 1', 'upload', 'more documentation', 'additional documentation'):
+                choice = 'upload'
+            elif _kw_match(content, 'option 2', 'remove'):
+                choice = 'remove'
+            elif _kw_match(content, 'option 3', 'submit without'):
+                choice = 'submit_without'
+            elif _kw_match(content, 'option 4', 'exit', 'restart', 'later', 'pause'):
+                choice = 'exit'
 
         if choice == 'upload':
             set_state(case_id, 'awaiting_additional_documentation', ctx)
@@ -548,15 +678,25 @@ def handle_user_message(case_id: str, content: str) -> List[Dict]:
         if _kw_match(content, 'yes', 'proceed', 'ok', 'okay', 'confirm'):
             soap = _generate_case_file(
                 case_id,
-                'Deborah SOAP Note for Dr Review.doc',
-                "SOAP Note Draft\nPatient: Deborah McCormick\nSummary: Auto-generated draft for physician review.",
+                'Deborah SOAP Note for Dr Review.txt',
+                SOAP_SAMPLE,
                 doc_type='generated-soap',
             )
+            soap_pdf = _generate_pdf(
+                case_id,
+                'Deborah SOAP Note for Dr Review.pdf',
+                SOAP_SAMPLE,
+            )
             ctx['documents']['soap_note'] = soap['doc_id']
+            ctx['documents']['soap_note_pdf'] = soap_pdf['doc_id']
             set_state(case_id, 'awaiting_signed_soap_note', ctx)
             apply_stage(case_id, 'awaiting_signed_soap_note')
+            text_path = soap.get('public_url') or soap.get('path') or ''
+            pdf_path = soap_pdf.get('public_url') or soap_pdf.get('path') or ''
             responses.append(record_message(case_id, 'assistant',
-                "I've generated the SOAP note for Dr. review. Download it from the documents panel, get it signed, and upload the signed version when it's ready."))
+                "I've generated the SOAP note for Dr. review. Download it from the documents panel" +
+                (f" (Text: {text_path} | PDF: {pdf_path})" if text_path or pdf_path else '') +
+                ", get it signed, and upload the signed version when it's ready."))
         elif _kw_match(content, 'no', 'not yet'):
             responses.append(record_message(case_id, 'assistant',
                 "No problem—just let me know when you'd like me to prepare the SOAP note."))
@@ -569,8 +709,14 @@ def handle_user_message(case_id: str, content: str) -> List[Dict]:
             "Once the signed SOAP note is uploaded, I'll generate the remaining submission package automatically."))
 
     elif stage == 'completed':
-        responses.append(record_message(case_id, 'assistant',
-            "This case is ready to submit. Let me know if you need any additional summaries or follow-up steps."))
+        if _kw_match(content, 'submit', 'please submit', 'file it', 'send it', 'go ahead'):
+            set_state(case_id, 'submitted', ctx)
+            apply_stage(case_id, 'submitted')
+            responses.append(record_message(case_id, 'assistant',
+                "This case has been submitted. Let me know if you need any additional summaries or follow-up steps."))
+        else:
+            responses.append(record_message(case_id, 'assistant',
+                "This case is ready to submit. Say 'submit' when you're ready, or let me know if you need any additional summaries."))
 
     else:
         responses.append(record_message(case_id, 'assistant',

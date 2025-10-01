@@ -12,9 +12,10 @@ const friendlyLabel = (value?: string | null) => {
     .replace(/(^|\s)\S/g, (s) => s.toUpperCase())
 }
 
-export default function SidebarCases() {
+export default function SidebarCases({ onCollapsedToggle }: { onCollapsedToggle?: () => void }) {
   const { cases, setCases, setDocuments, setMessages } = useStore()
   const [query, setQuery] = useState('')
+  const [newTitle, setNewTitle] = useState('')
   const navigate = useNavigate()
   const { pathname } = useLocation()
 
@@ -36,13 +37,14 @@ export default function SidebarCases() {
   }, [cases, query])
 
   const create = async () => {
-    const title = prompt('Name your case')
+    const title = (newTitle || `New Case ${Math.random().toString(36).slice(2,6).toUpperCase()}`).trim()
     if (!title) return
     try {
       const created = await createCase({ title })
       const refreshed = await listCases()
       setCases(refreshed)
       navigate(`/cases/${created.case_id}`)
+      setNewTitle('')
     } catch (err) {
       console.error('Failed to create case', err)
       alert('Failed to create case. Please try again later.')
@@ -75,15 +77,40 @@ export default function SidebarCases() {
             <p className="text-[0.65rem] uppercase tracking-[0.35em] text-emerald-200/70">Pipeline</p>
             <h2 className="text-xl font-semibold text-white">Case Queue</h2>
           </div>
-          <button onClick={create} className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-400/20 hover:text-white">+ New Case</button>
+          <div className="flex items-center gap-2">
+            {onCollapsedToggle && (
+              <button
+                onClick={onCollapsedToggle}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-300 transition hover:border-emerald-400/50 hover:text-white"
+                aria-label="Collapse case queue"
+              >
+                <i className="fa-solid fa-chevron-left" />
+              </button>
+            )}
+          </div>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
           <label className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 focus-within:border-emerald-400/60 focus-within:text-white">
             <svg className="h-4 w-4 text-emerald-300/80" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
             </svg>
             <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by patient, payer, or status…" className="h-6 w-full bg-transparent text-sm text-white placeholder:text-slate-400 focus:outline-none" />
           </label>
+          <div className="flex items-center gap-2">
+            <label className="group flex-1 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 focus-within:border-emerald-400/60 focus-within:text-white">
+              <svg className="h-4 w-4 text-emerald-300/80" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <input
+                value={newTitle}
+                onChange={e=>setNewTitle(e.target.value)}
+                onKeyDown={(e)=>{ if(e.key==='Enter'){ e.preventDefault(); create(); }}}
+                placeholder="Enter patient name (optional)"
+                className="h-6 w-full bg-transparent text-sm text-white placeholder:text-slate-400 focus:outline-none"
+              />
+            </label>
+            <button onClick={create} className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-400/20 hover:text-white">New Case</button>
+          </div>
         </div>
       </div>
 

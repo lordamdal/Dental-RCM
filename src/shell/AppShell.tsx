@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import SidebarCases from '../components/SidebarCases'
 import CaseChatPanel from '../components/CaseChatPanel'
 
 export default function AppShell() {
+  const [queueVisible, setQueueVisible] = useState(true)
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.28)_0,rgba(10,15,29,0.7)_45%,rgba(2,6,23,0.95)_80%)]" />
@@ -16,41 +19,55 @@ export default function AppShell() {
                 <div className="flex h-full w-full items-center justify-center rounded-[1rem] bg-slate-950 text-lg font-semibold text-white">A</div>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.45em] text-emerald-200/70">Amdal RCM</p>
+                <p className="text-xs uppercase tracking-[0.45em] text-emerald-200/70">Dental RCM</p>
                 <p className="text-lg font-semibold text-white">Case Command Center</p>
               </div>
             </div>
 
-            <nav className="flex items-center gap-6 text-sm text-slate-300">
-              <a className="transition hover:text-white" href="https://github.com/rdev/liquid-glass-react" target="_blank" rel="noreferrer">Design Kit</a>
-              <a className="transition hover:text-white" href="https://tailwindcss.com" target="_blank" rel="noreferrer">Tailwind</a>
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-emerald-200">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                Live sync
-              </div>
-            </nav>
+            <div className="flex items-center gap-3 text-xs text-emerald-200">
+              <button
+                onClick={() => setQueueVisible(v => !v)}
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200 transition hover:border-emerald-400/60 hover:text-white"
+              >
+                <span className={`inline-flex h-2 w-2 rounded-full ${queueVisible ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                {queueVisible ? 'Hide queue' : 'Show queue'}
+              </button>
+            </div>
           </div>
         </header>
 
-        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
-          <div className="grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)]">
-            <aside className="flex h-full flex-col rounded-3xl border border-white/10 bg-white/5 shadow-[0_25px_70px_rgba(8,47,73,0.35)] backdrop-blur">
-              <SidebarCases />
-            </aside>
+        <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+          <div className="grid h-full grid-rows-[minmax(0,1fr)_auto] gap-6">
+            <div className={`grid min-h-0 gap-6 ${queueVisible ? 'grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]' : 'grid-cols-1'}`}>
+              {queueVisible && (
+                <aside className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_25px_70px_rgba(8,47,73,0.35)] backdrop-blur">
+                  <SidebarCases onCollapsedToggle={() => setQueueVisible(false)} />
+                </aside>
+              )}
 
-            <main className="flex h-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/55 shadow-[0_25px_70px_rgba(15,23,42,0.45)] backdrop-blur">
-              <div className="flex-1 overflow-hidden">
-                <div className="h-full overflow-y-auto px-4 py-6 sm:px-8">
-                  <Outlet/>
+              <main className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/60 shadow-[0_25px_70px_rgba(15,23,42,0.45)] backdrop-blur">
+                <div className="flex-1 min-h-0 overflow-hidden px-4 py-5 sm:px-8">
+                  <div className="h-full min-h-0 overflow-hidden">
+                    <Outlet/>
+                  </div>
                 </div>
-              </div>
-            </main>
-          </div>
+              </main>
+            </div>
 
-          <section className="flex h-[360px] flex-col rounded-3xl border border-white/10 bg-slate-900/55 shadow-[0_25px_70px_rgba(15,23,42,0.45)] backdrop-blur lg:h-[400px]">
-            <CaseChatPanel/>
-          </section>
+            <section className="h-[660px] rounded-3xl border border-white/10 bg-slate-900/60 shadow-[0_25px_70px_rgba(15,23,42,0.45)] backdrop-blur lg:h-[480px] xl:h-[600px]">
+              <CaseChatPanel/>
+            </section>
+          </div>
         </div>
+        {!queueVisible && (
+          <button
+            onClick={() => setQueueVisible(true)}
+            className="fixed left-4 top-1/2 z-40 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-slate-900/80 text-white shadow-lg backdrop-blur hover:border-emerald-400/60"
+            aria-label="Show case queue"
+          >
+            <i className="fa-solid fa-chevron-right" />
+          </button>
+        )}
       </div>
     </div>
   )
